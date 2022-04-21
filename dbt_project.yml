@@ -1,0 +1,38 @@
+name: 'jira'
+version: '0.7.0'
+config-version: 2
+require-dbt-version: [">=1.0.0", "<2.0.0"]
+
+
+vars:
+
+  jira:
+    issue: "{{ ref('stg_jira__issue') }}"
+    project: "{{ ref('stg_jira__project') }}"
+    user: "{{ ref('stg_jira__user') }}"
+    issue_type: "{{ ref('stg_jira__issue_type') }}"
+    status: "{{ ref('stg_jira__status') }}"
+    status_category: "{{ ref('stg_jira__status_category') }}"
+    resolution: "{{ ref('stg_jira__resolution') }}"
+    priority: "{{ ref('stg_jira__priority') }}"
+    issue_multiselect_history: "{{ ref('stg_jira__issue_multiselect_history') }}"
+    issue_field_history: "{{ ref('stg_jira__issue_field_history') }}"
+    comment: "{{ ref('stg_jira__comment') }}"
+    issue_link: "{{ ref('stg_jira__issue_link') }}"
+    component: "{{ ref('stg_jira__component') }}"
+    field: "{{ ref('stg_jira__field') }}"
+    sprint: "{{ ref('stg_jira__sprint') }}"
+    version: "{{ ref('stg_jira__version') }}"
+
+    jira_include_comments: true  # this package aggregates issue comments so that you have a single view of all your comments in the jira__issue_enhanced table. This can cause limit errors if you have a large dataset. Disable to remove this functionality.
+    jira_using_sprints: true # disable if you are not using sprints in Jira
+    jira_using_versions: true # disable if you are not using versions in Jira
+    jira_issue_history_buffer: 1 # in months
+
+models:
+  jira:
+    +materialized: table # field history tables are configured to be incremental, except for int_jira__field_history_scd, which has to be a table
+    +schema: jira
+    intermediate:
+      +materialized: ephemeral
+      +schema: int_jira # field history models will be written here (and are not ephemeral, so they'll exist in the warehouse)
