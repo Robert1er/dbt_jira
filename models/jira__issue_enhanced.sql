@@ -14,7 +14,7 @@ with issue as (
 {%- endfor -%}
 
 daily_issue_field_history as (
-    
+
     select
         *,
         row_number() over (partition by issue_id order by date_day desc) = 1 as latest_record
@@ -23,7 +23,7 @@ daily_issue_field_history as (
 ),
 
 latest_issue_field_history as (
-    
+
     select
         *
     from daily_issue_field_history
@@ -32,8 +32,8 @@ latest_issue_field_history as (
 
 final as (
 
-    select 
-    
+    select
+
         issue.*,
 
         {{ dbt_utils.datediff('created_at', "coalesce(resolved_at, " ~ dbt_utils.current_timestamp() ~ ')', 'second') }} open_duration_seconds,
@@ -42,20 +42,25 @@ final as (
         {{ dbt_utils.datediff('first_assigned_at', "coalesce(resolved_at, " ~ dbt_utils.current_timestamp() ~ ')', 'second') }} any_assignment_duration_seconds,
 
         -- if an issue is not currently assigned this will not be null
-        {{ dbt_utils.datediff('last_assigned_at', "coalesce(resolved_at, " ~ dbt_utils.current_timestamp() ~ ')', 'second') }} last_assignment_duration_seconds 
+        {{ dbt_utils.datediff('last_assigned_at', "coalesce(resolved_at, " ~ dbt_utils.current_timestamp() ~ ')', 'second') }} last_assignment_duration_seconds
 
-        {% for col in pivot_data_columns if col.name|lower not in issue_data_columns_clean %} 
+        {% for col in pivot_data_columns if col.name|lower not in issue_data_columns_clean %}
             {%- if col.name|lower not in ['issue_day_id','issue_id','latest_record', 'date_day'] -%}
                 , {{ col.name }}
             {%- endif -%}
         {% endfor %}
 
     from issue
-    
-    left join latest_issue_field_history 
+
+    left join latest_issue_field_history
         on issue.issue_id = latest_issue_field_history.issue_id
-        
+
 )
 
-select *
+select
+    final.*,
+    users.user_display_name as creator_name,
+    {{ dbt_utils.star(from=ref('stg_jira__custom_fields'), except=["issue_id", "key"]) }}
 from final
+left join {{ ref('stg_jira__custom_fields') }} custom_fields on final.issue_key = custom_fields.key
+left join {{ ref('stg_jira__user') }} users on users.user_id = final.creator_user_id
