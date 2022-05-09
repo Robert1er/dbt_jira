@@ -55,12 +55,27 @@ final as (
     left join latest_issue_field_history
         on issue.issue_id = latest_issue_field_history.issue_id
 
+),
+
+labels as (
+
+    select
+        issue_id,
+        listagg(field_value, ', ') as field_value
+
+    from {{ ref('stg_jira__issue_multiselect_history') }}
+    where field_id = 'labels' and is_active = True
+    group by 1
+
 )
 
 select
     final.*,
     users.user_display_name as creator_name,
+    labels.field_value as labels,
     {{ dbt_utils.star(from=ref('stg_jira__custom_fields'), except=["issue_id", "key"]) }}
+
 from final
-left join {{ ref('stg_jira__custom_fields') }} custom_fields on final.issue_key = custom_fields.key
 left join {{ ref('stg_jira__user') }} users on users.user_id = final.creator_user_id
+left join {{ ref('stg_jira__custom_fields') }} custom_fields on final.issue_key = custom_fields.key
+left join labels on labels.issue_id = final.issue_id
